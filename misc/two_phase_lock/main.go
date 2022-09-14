@@ -7,11 +7,12 @@ import (
 	"os/signal"
 	"sync"
 	"syscall"
+	"time"
 )
 
 const (
 	N = 100000
-	M = 1
+	M = 16
 	L = 10000
 )
 
@@ -47,20 +48,48 @@ func (d *data) transaction2PL(i, j int) {
 	iii := (i + 2) % N
 
 	// lock
-	d.l[i].RLock()
-	defer d.l[i].RUnlock()
-	d.l[ii].RLock()
-	defer d.l[ii].RUnlock()
-	d.l[iii].RLock()
-	defer d.l[iii].RUnlock()
+	switch j {
+	case i:
+		d.l[i].Lock()
+		defer d.l[i].Unlock()
+		d.l[ii].RLock()
+		defer d.l[ii].RUnlock()
+		d.l[iii].RLock()
+		defer d.l[iii].RUnlock()
+	case ii:
+		d.l[i].RLock()
+		defer d.l[i].RUnlock()
+		d.l[ii].Lock()
+		defer d.l[ii].Unlock()
+		d.l[iii].RLock()
+		defer d.l[iii].RUnlock()
+	case iii:
+		d.l[i].RLock()
+		defer d.l[i].RUnlock()
+		d.l[ii].RLock()
+		defer d.l[ii].RUnlock()
+		d.l[iii].Lock()
+		defer d.l[iii].Unlock()
+	default:
+		d.l[i].RLock()
+		defer d.l[i].RUnlock()
+		d.l[ii].RLock()
+		defer d.l[ii].RUnlock()
+		d.l[iii].RLock()
+		defer d.l[iii].RUnlock()
+	}
 	// read
 	a := d.d[i]
 	b := d.d[ii]
 	c := d.d[iii]
 	sum := a + b + c
 	// write
-	d.l[j].Lock()
-	defer d.l[j].Unlock()
+	switch j {
+	case i, ii, iii:
+	default:
+		d.l[j].Lock()
+		defer d.l[j].Unlock()
+	}
 	d.d[j] = sum
 }
 
@@ -70,10 +99,11 @@ type worker struct {
 }
 
 func (w *worker) run() {
+	mt := time.Now()
 	for i := 0; i < L; i++ {
 		w.randomUpdate()
-		fmt.Printf("w: %d, r: %d\n", w.id, i)
 	}
+	fmt.Printf("w: %d done, time cost: %v\n", w.id, time.Since(mt))
 }
 
 func (w *worker) randomUpdate() {
