@@ -6,14 +6,19 @@ import (
 	"os"
 	"os/signal"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
 
 const (
 	N = 100000
-	M = 16
+	M = 100
 	L = 10000
+)
+
+var (
+	finishCount int64
 )
 
 func main() {
@@ -103,7 +108,8 @@ func (w *worker) run() {
 	for i := 0; i < L; i++ {
 		w.randomUpdate()
 	}
-	fmt.Printf("w: %d done, time cost: %v\n", w.id, time.Since(mt))
+	atomic.AddInt64(&finishCount, 1)
+	fmt.Printf("w: %d done, time cost: %v, finish count: %d\n", w.id, time.Since(mt), finishCount)
 }
 
 func (w *worker) randomUpdate() {
